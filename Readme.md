@@ -17,9 +17,18 @@ npm install react react-dom framer-motion @ionic/react lottie-web @ionic/core io
 ```
 ## Screenshots
 
-| Preview | Playing | Loading | Minimized |
-|---------|---------|---------|-----------|
-| ![Preview](assets/preview.gif) | ![Playing](assets/playing.png) | ![Loading](assets/loading.png) | ![Minimized](assets/minimized.png) |
+### Preview
+![Preview](assets/preview.gif)
+
+### Playing
+![Playing](assets/playing.png)
+
+### Loading
+![Loading](assets/loading.png)
+
+### Minimized
+![Minimized](assets/minimized.png)
+
 
 ## Usage
 
