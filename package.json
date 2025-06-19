@@ -1,6 +1,6 @@
 {
   "name": "@lijuu/musicplayerwidget",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "A Simple React music player widget and modern UI",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -37,7 +37,7 @@
     "widget",
     "audio"
   ],
-  "author": "Your Name",
+  "author": "liju thomas",
   "license": "MIT",
   "repository": {
     "type": "git",

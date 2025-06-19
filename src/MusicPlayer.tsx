@@ -2,33 +2,30 @@ import React, { useState, useEffect, useRef } from "react";
 import lottie from "lottie-web";
 import { motion } from "framer-motion";
 import { IonIcon } from "@ionic/react";
-import { addOutline, removeOutline, playSharp, pauseSharp } from "ionicons/icons";
+import { addOutline, removeOutline, playSharp, pauseSharp, reloadOutline } from "ionicons/icons";
 
-// Define props interface to accept className
-interface MusicPlayerProps {
-  className?: string;
+// Define Track interface
+export interface Track {
+  title: string;
+  artist: string;
+  url: string;
+  image: string;
 }
 
-const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState({
-    title: "",
-    artist: "",
-    url: "",
-    image: "",
-  });
-  const [soundBarsLottie, setSoundBarsLottie] = useState<any>(null);
-  const audioRef = useRef(new Audio());
+// Define props interface
+interface MusicPlayerProps {
+  className?: string;
+  newTrack?: Track[];
+  audioRefProp?: React.MutableRefObject<HTMLAudioElement>;
+}
 
-  const trackList = [
-    {
-      title: "Feel",
-      artist: "Misanthrop",
-      url: "https://azuki-songs.s3.amazonaws.com/f1/11%20-%20Feel.mp3",
-      image: "https://elementals-images.b-cdn.net/2461bf97-fd5f-406f-8ea4-81b051e70e9c.png",
-    },
+const MusicPlayer: React.FC<MusicPlayerProps> = ({
+  className = "",
+  newTrack,
+  audioRefProp,
+}) => {
+  // Default track list
+  const defaultTracks: Track[] = [
     {
       title: "WRATH",
       artist: "FREDDIE DREAD",
@@ -65,14 +62,71 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
       url: "https://azuki-songs.s3.amazonaws.com/f1/2%20-%20BADDERS%20%5BExplicit%5D.mp3",
       image: "https://elementals-images.b-cdn.net/0ab85d49-16d8-4787-91c3-ec79c7715c56.png",
     },
-
   ];
 
-  const loadTrack = (index: number) => {
+  // State declarations
+  const [trackIndex, setTrackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState<Track>(defaultTracks[0]);
+  const [soundBarsLottie, setSoundBarsLottie] = useState<any>(null);
+  const [trackList, setTrackList] = useState<Track[]>(defaultTracks);
+  const [isTrackLoading, setIsTrackLoading] = useState(true);
+  const defaultAudioRef = useRef<HTMLAudioElement>(new Audio() as HTMLAudioElement);
+  const audioRef = audioRefProp || defaultAudioRef;
+
+  // Preload all tracks
+  useEffect(() => {
+    const preloadTracks = (tracks: Track[]) => {
+      tracks.forEach((track) => {
+        const audio = new Audio(track.url);
+        audio.preload = "auto";
+        audio.load();
+      });
+    };
+
+    preloadTracks(defaultTracks);
+    if (newTrack && newTrack.length > 0) {
+      const validTracks = newTrack.filter(
+        (track) => track?.url && track.title && track.artist && track.image
+      );
+      if (validTracks.length > 0) {
+        setTrackList((prev) => {
+          const newTrackList = [...prev, ...validTracks];
+          preloadTracks(validTracks);
+          const newIndex = prev.length;
+          setTrackIndex(newIndex);
+          loadTrack(newIndex, newTrackList);
+          return newTrackList;
+        });
+      }
+    }
+  }, [newTrack]);
+
+  // Handle window resize for minimize state
+  useEffect(() => {
+    const handleResize = () => setIsMinimized(window.innerWidth < 640);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Load a track by index
+  const loadTrack = (index: number, tracks: Track[] = trackList) => {
+    if (!tracks[index]) {
+      setCurrentTrack(defaultTracks[0]);
+      audioRef.current.src = defaultTracks[0].url;
+      audioRef.current.load();
+      setTrackIndex(0);
+      setIsTrackLoading(true);
+      return;
+    }
+
     audioRef.current.pause();
     audioRef.current.removeEventListener("ended", nextTrack);
-    const track = trackList[index];
+    const track = tracks[index];
     setCurrentTrack(track);
+    setIsTrackLoading(true);
     audioRef.current.src = track.url;
     audioRef.current.load();
     audioRef.current.addEventListener("ended", nextTrack);
@@ -80,10 +134,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
       audioRef.current.play().catch((error) => {
         console.error("Play failed:", error);
         setIsPlaying(false);
+        setIsTrackLoading(false);
       });
     }
   };
 
+  // Toggle play/pause
   const playPauseTrack = () => {
     if (!isPlaying) {
       audioRef.current.play().catch((error) => {
@@ -91,28 +147,32 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
         setIsPlaying(false);
       });
       setIsPlaying(true);
-      if (soundBarsLottie) soundBarsLottie.playSegments([0, 120], true);
+      soundBarsLottie?.playSegments([0, 120], true);
     } else {
       audioRef.current.pause();
       setIsPlaying(false);
-      if (soundBarsLottie) soundBarsLottie.stop();
+      soundBarsLottie?.stop();
     }
   };
 
+  // Play next track
   const nextTrack = () => {
     const newIndex = (trackIndex + 1) % trackList.length;
     setTrackIndex(newIndex);
     loadTrack(newIndex);
   };
 
+  // Play previous track
   const prevTrack = () => {
     const newIndex = (trackIndex - 1 + trackList.length) % trackList.length;
     setTrackIndex(newIndex);
     loadTrack(newIndex);
   };
 
+  // Toggle minimize state
   const toggleMinimize = () => setIsMinimized(!isMinimized);
 
+  // Initialize Lottie animation and load first track
   useEffect(() => {
     const lottieInstance = lottie.loadAnimation({
       container: document.querySelector(".sound-bars")!,
@@ -123,47 +183,56 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
     });
     setSoundBarsLottie(lottieInstance);
     loadTrack(0);
-    playPauseTrack();
     return () => lottieInstance.destroy();
   }, []);
 
+  // Sync audio play/pause and loading state
   useEffect(() => {
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    const handleCanPlayThrough = () => setIsTrackLoading(false);
+    
     audioRef.current.addEventListener("play", handlePlay);
     audioRef.current.addEventListener("pause", handlePause);
+    audioRef.current.addEventListener("canplaythrough", handleCanPlayThrough);
     return () => {
       audioRef.current.removeEventListener("play", handlePlay);
       audioRef.current.removeEventListener("pause", handlePause);
+      audioRef.current.removeEventListener("canplaythrough", handleCanPlayThrough);
       audioRef.current.pause();
     };
-  }, []);
+  }, [audioRef]);
 
   return (
     <div className={`fixed z-20 ${className}`}>
       <motion.div
-        className="relative flex items-center p-2 rounded-lg shadow-lg overflow-visible"
-        initial={{ width: isMinimized ? "70px" : "440px", height: isMinimized ? "66px" : "72px" }}
-        animate={{ width: isMinimized ? "70px" : "440px", height: isMinimized ? "66px" : "72px" }}
-        transition={{ duration: 0.3, ease: "linear" }}
+        className="relative flex items-center p-2 rounded-lg shadow-lg overflow-visible bg-white bg-opacity-10 backdrop-blur-lg"
+        initial={{
+          width: isMinimized ? "4.5rem" : "min(28rem, 90vw)",
+          height: isMinimized ? "4.125rem" : "4.5rem",
+        }}
+        animate={{
+          width: isMinimized ? "4.5rem" : "min(28rem, 90vw)",
+          height: isMinimized ? "4.125rem" : "4.5rem",
+        }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
         style={{
           border: "1px solid rgba(255, 255, 255, 0.18)",
           borderRadius: "16px",
         }}
-
       >
-        {/* Grain overlay */}
+        {/* Noise overlay */}
         <div
           className="pointer-events-none absolute inset-0 z-10 m-[1.5px]"
           style={{
             backgroundImage: `url("https://grainy-gradients.vercel.app/noise.svg")`,
             opacity: 1,
             borderRadius: "16px",
-            mixBlendMode: "overlay"
+            mixBlendMode: "overlay",
           }}
         />
 
-        {/* Background image with blur */}
+        {/* Background image */}
         <div
           className="absolute inset-0 border"
           style={{
@@ -176,74 +245,126 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ className = "" }) => {
           }}
         />
 
-        {/* Content layer with fixed positions */}
         <div className="relative w-full h-full">
-          {/* Sound bars at fixed left position */}
+          {/* Sound bars animation */}
           <div
             className={`sound-bars absolute top-1/2 transform -translate-y-1/2 transition-all duration-300`}
             style={{
-              width: isMinimized ? "48px" : "40px",
-              height: isMinimized ? "48px" : "40px",
+              width: isMinimized ? "2.5rem" : "2.5rem",
+              height: isMinimized ? "2.5rem" : "2.5rem",
               filter: isMinimized ? "brightness(0) invert(1)" : "none",
+              left: isMinimized ? "0.5rem" : "0.5rem",
             }}
           ></div>
 
-          {/* Avatar (pfp) at fixed position when not minimized */}
+          {/* Track image when not minimized */}
           {!isMinimized && (
-            <div className="w-14 h-14 rounded-full overflow-hidden absolute left-12 top-1/2 transform -translate-y-1/2">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden absolute left-12 top-1/2 transform -translate-y-1/2">
               <img src={currentTrack.image} className="w-full h-full object-cover" />
             </div>
           )}
 
-          {/* Text area (flexible) including minimized state */}
-          <div className="flex flex-col justify-center overflow-hidden ml-32 mr-24">
-            <span className="font-bold text-lg text-gray-900 drop-shadow-md truncate">{currentTrack.title}</span>
+          {/* Track info */}
+          <div
+            className={`flex flex-col justify-center mt-1 transition-all duration-300 ${
+              isMinimized ? "ml-0" : "ml-28"
+            }`}
+            style={{
+              minWidth: isMinimized ? "0" : "0",
+              maxWidth: isMinimized ? "calc(100% - 3.5rem)" : "calc(100% - 10rem)",
+              flex: "1 1 0%",
+              overflow: "hidden",
+            }}
+          >
+            <span
+              className={`font-bold truncate drop-shadow-md ${
+                isMinimized ? "text-sm" : "text-base sm:text-lg"
+              } text-gray-900`}
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: "#111827",
+              }}
+              title={currentTrack.title}
+            >
+              {currentTrack.title}
+            </span>
             {!isMinimized && (
-              <span className="text-xs text-gray-900  opacity-90 truncate">
+              <span
+                className="text-xs sm:text-sm truncate"
+                style={{
+                  color: "#111827",
+                  opacity: 0.9,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={currentTrack.artist}
+              >
                 {currentTrack.artist}
               </span>
             )}
           </div>
 
-          {/* Control buttons at fixed right position when not minimized */}
+          {/* Control buttons */}
           {!isMinimized && (
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
               <motion.button
-                className="p-1 w-8 h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
+                className="p-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
                 onClick={prevTrack}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <IonIcon icon={playSharp} className="text-white" style={{ transform: "rotate(180deg)" }} />
+                <IonIcon
+                  icon={playSharp}
+                  className="text-white text-sm sm:text-base"
+                  style={{ transform: "rotate(180deg)" }}
+                />
               </motion.button>
               <motion.button
-                className="p-1 w-8 h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
+                className="p-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
                 onClick={playPauseTrack}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <IonIcon icon={isPlaying ? pauseSharp : playSharp} className="text-white text-lg" />
+                {isTrackLoading ? (
+                  <IonIcon
+                    icon={reloadOutline}
+                    className="text-white text-sm sm:text-lg animate-spin"
+                  />
+                ) : (
+                  <IonIcon
+                    icon={isPlaying ? pauseSharp : playSharp}
+                    className="text-white text-sm sm:text-lg sm:text-center"
+                  />
+                )}
               </motion.button>
               <motion.button
-                className="p-1 w-8 h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
+                className="p-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
                 onClick={nextTrack}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <IonIcon icon={playSharp} className="text-white" />
+                <IonIcon icon={playSharp} className="text-white text-sm sm:text-base" />
               </motion.button>
             </div>
           )}
 
-          {/* Minimize button at fixed top-right position */}
+          {/* Minimize button */}
           <motion.button
-            className={`absolute ${isMinimized ? "top-[-26px] right-[-23px]" : "top-[-23px] right-[-23px]"} w-8 h-8 rounded-full bg-black bg-opacity-50 flex justify-center items-center border border-white border-opacity-10 cursor-pointer`}
+            className={`absolute ${
+              isMinimized ? "top-[-1.5rem] right-[-1.5rem]" : "top-[-1.5rem] right-[-2rem]"
+            } w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black bg-opacity-50 flex justify-center items-center border border-white border-opacity-10 cursor-pointer sm:right-[-2rem] sm:duration-50`}
             onClick={toggleMinimize}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             style={{ zIndex: 10 }}
           >
-            <IonIcon icon={isMinimized ? addOutline : removeOutline} className="text-white" />
+            <IonIcon
+              icon={isMinimized ? addOutline : removeOutline}
+              className="text-white text-sm sm:text-base"
+            />
           </motion.button>
         </div>
       </motion.div>
