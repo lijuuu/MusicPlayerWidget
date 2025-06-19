@@ -1,0 +1,42 @@
+# NODE MODULES
+node_modules/
+
+# ENV FILES
+.env
+.env.local
+.env.*.local
+
+# LOG FILES
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS FILES
+.DS_Store
+Thumbs.db
+
+# EDITOR FILES
+.vscode/
+.idea/
+
+# BUILD OUTPUT
+dist/
+build/
+.cache/
+.next/
+out/
+coverage/
+
+# OPTIONAL PACKAGE MANAGERS
+.pnpm-debug.log*
+.package-lock.json
+yarn.lock
+
+# OPTIONAL TEMP FILES
+*.log
+*.tgz
+
+# BABEL / WEBPACK / TYPESCRIPT
+babel.config.js
+webpack.config.js
+tsconfig.build.tsbuildinfo
